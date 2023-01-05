@@ -1,0 +1,82 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: java-app-autointrumentation-poc
+  labels:
+    app: javaapi
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: javaapi
+  template:
+    metadata:
+      labels:
+        app: javaapi
+      annotations:
+        instrumentation.opentelemetry.io/inject-java: "true"
+        instrumentation.opentelemetry.io/container-names: "javaapi"
+    spec:
+      containers:
+        - name: javaapi
+          image: manubs/javaapp
+          ports:
+            - containerPort: 8080
+        - name: jaeger-agent
+          image: jaegertracing/jaeger-agent:1.37.0
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: REPORTER_GRPC_HOST_PORT
+              value: jaeger-collector:14250
+          ports:
+          - name: zipkin-compact
+            containerPort: 5775
+            protocol: UDP
+          - name: jaeger-compact
+            containerPort: 6831
+            protocol: UDP
+          - name: jaeger-binary
+            containerPort: 6832
+            protocol: UDP
+          - name: http
+            containerPort: 5778
+            protocol: TCP
+          - name: admin
+            containerPort: 14271
+            protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /
+              port: admin
+          readinessProbe:
+            httpGet:
+              path: /
+              port: admin
+        - name: agent
+          image: otel/opentelemetry-collector:0.18.0
+          args:
+          - --config=/conf/agent.yaml
+          volumeMounts:
+          - mountPath: /conf
+            name: agent-config
+      volumes:
+        - configMap:
+            items:
+            - key: agent.yaml
+              path: agent.yaml
+            name: agent-config
+          name: agent-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: java-service
+spec:
+  ports:
+  - port: 8080
+    protocol: TCP
+    targetPort: 8080
+  selector:
+    app: javaapi
+  type: ClusterIP

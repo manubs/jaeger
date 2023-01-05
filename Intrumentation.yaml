@@ -1,0 +1,25 @@
+apiVersion: opentelemetry.io/v1alpha1
+kind: Instrumentation
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: opentelemetry-operator
+  name: my-instrumentation
+  namespace: poc
+spec:
+  exporter:
+    endpoint: http://opentelemetrycollector.poc.svc.cluster.local:4317
+  dotnet:
+    image: manubs/dotnet-autoinstrumentation
+  java:
+    image: manubs/java-autoinstrumentation
+  nodejs:
+    image: manubs/nodejs-autoinstrumentation
+  python:
+    image: manubs/python-autoinstrumentation
+  propagators:
+  - tracecontext
+  - baggage
+  - b3
+  sampler:
+    argument: "0.25"
+    type: parentbased_traceidratio
